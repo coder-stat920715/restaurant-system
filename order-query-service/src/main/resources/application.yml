@@ -1,0 +1,16 @@
+server.port: 8082
+spring:
+  application.name: order-query-service
+  threads.virtual.enabled: true
+  data.mongodb.uri: ${MONGO_URI:mongodb://localhost:27017/orders_read}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:29092}
+    consumer:
+      group-id: order-read-model
+      enable-auto-commit: false
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    listener.ack-mode: manual
+  security.oauth2.resourceserver.jwt.issuer-uri: ${OIDC_ISSUER_URI:http://localhost:8180/realms/restaurant}
+management.endpoints.web.exposure.include: health,prometheus

@@ -1,0 +1,80 @@
+server.port: 8081
+spring:
+  application.name: order-service
+  threads.virtual.enabled: true
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/orders}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+  jpa:
+    open-in-view: false
+    hibernate.ddl-auto: none        # schema owned by Flyway
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:29092}
+    consumer:
+      group-id: order-service-saga
+      enable-auto-commit: false
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    listener.ack-mode: manual
+  security.oauth2.resourceserver.jwt.issuer-uri: ${OIDC_ISSUER_URI:http://localhost:8180/realms/restaurant}
+
+clients.payment.base-url: ${PAYMENT_URL:http://localhost:8083}
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50
+        slowCallDurationThreshold: 2s
+        slowCallRateThreshold: 80
+        waitDurationInOpenState: 20s
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        permittedNumberOfCallsInHalfOpenState: 5
+        recordExceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+          - org.springframework.web.client.HttpServerErrorException
+          - org.springframework.web.client.ResourceAccessException
+        ignoreExceptions:
+          - com.example.restaurant.client.PaymentDeclinedException
+    instances:
+      paymentService:
+        baseConfig: default
+  retry:
+    configs:
+      default:
+        maxAttempts: 4
+        waitDuration: 200ms
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+        exponentialMaxWaitDuration: 5s
+        enableRandomizedWait: true
+        randomizedWaitFactor: 0.5
+        retryExceptions:
+          - java.io.IOException
+          - org.springframework.web.client.ResourceAccessException
+          - org.springframework.web.client.HttpServerErrorException
+        ignoreExceptions:
+          - com.example.restaurant.client.PaymentDeclinedException
+          - io.github.resilience4j.circuitbreaker.CallNotPermittedException
+    instances:
+      paymentService:
+        baseConfig: default
+  bulkhead:
+    instances:
+      paymentService:
+        maxConcurrentCalls: 25
+        maxWaitDuration: 100ms
+  ratelimiter:
+    instances:
+      paymentService:
+        limitForPeriod: 100
+        limitRefreshPeriod: 1s
+        timeoutDuration: 0
+
+management.endpoints.web.exposure.include: health,prometheus,circuitbreakers,retries
