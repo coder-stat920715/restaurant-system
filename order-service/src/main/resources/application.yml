@@ -20,61 +20,8 @@ spring:
     listener.ack-mode: manual
   security.oauth2.resourceserver.jwt.issuer-uri: ${OIDC_ISSUER_URI:http://localhost:8180/realms/restaurant}
 
-clients.payment.base-url: ${PAYMENT_URL:http://localhost:8083}
-
-resilience4j:
-  circuitbreaker:
-    configs:
-      default:
-        slidingWindowType: COUNT_BASED
-        slidingWindowSize: 20
-        minimumNumberOfCalls: 10
-        failureRateThreshold: 50
-        slowCallDurationThreshold: 2s
-        slowCallRateThreshold: 80
-        waitDurationInOpenState: 20s
-        automaticTransitionFromOpenToHalfOpenEnabled: true
-        permittedNumberOfCallsInHalfOpenState: 5
-        recordExceptions:
-          - java.io.IOException
-          - java.util.concurrent.TimeoutException
-          - org.springframework.web.client.HttpServerErrorException
-          - org.springframework.web.client.ResourceAccessException
-        ignoreExceptions:
-          - com.example.restaurant.client.PaymentDeclinedException
-    instances:
-      paymentService:
-        baseConfig: default
-  retry:
-    configs:
-      default:
-        maxAttempts: 4
-        waitDuration: 200ms
-        enableExponentialBackoff: true
-        exponentialBackoffMultiplier: 2
-        exponentialMaxWaitDuration: 5s
-        enableRandomizedWait: true
-        randomizedWaitFactor: 0.5
-        retryExceptions:
-          - java.io.IOException
-          - org.springframework.web.client.ResourceAccessException
-          - org.springframework.web.client.HttpServerErrorException
-        ignoreExceptions:
-          - com.example.restaurant.client.PaymentDeclinedException
-          - io.github.resilience4j.circuitbreaker.CallNotPermittedException
-    instances:
-      paymentService:
-        baseConfig: default
-  bulkhead:
-    instances:
-      paymentService:
-        maxConcurrentCalls: 25
-        maxWaitDuration: 100ms
-  ratelimiter:
-    instances:
-      paymentService:
-        limitForPeriod: 100
-        limitRefreshPeriod: 1s
-        timeoutDuration: 0
+saga:
+  timeout: PT2M                  # a saga step with no reply for this long is compensated
+  timeout-check-interval: PT30S
 
 management.endpoints.web.exposure.include: health,prometheus,circuitbreakers,retries

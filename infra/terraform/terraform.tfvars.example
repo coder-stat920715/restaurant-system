@@ -1,0 +1,13 @@
+region                     = "eu-west-1"
+domain_name                = "api.example.com"
+hosted_zone_id             = "Z0123456789ABCDEFGHIJ"
+alb_certificate_arn        = "arn:aws:acm:eu-west-1:111111111111:certificate/aaaa-bbbb"   # covers origin.api.example.com
+cloudfront_certificate_arn = "arn:aws:acm:us-east-1:111111111111:certificate/cccc-dddd"   # covers api.example.com
+origin_verify_secret       = "change-me-long-random-string"
+oidc_issuer_uri            = "https://keycloak.example.com/realms/restaurant"
+docdb_master_password      = "change-me-too"
+debezium_plugin_bucket     = "my-artifacts-bucket"
+debezium_plugin_key        = "debezium/debezium-connector-postgres-2.7.3.zip"
+image_tag                  = "1.0.0"
+# protect_data             = true     # production
+# enable_shield_advanced   = true     # needs a Shield Advanced subscription

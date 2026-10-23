@@ -74,15 +74,15 @@ class OrderSagaIntegrationTest {
             {"locationId":"loc-1","lines":[{"menuItemId":"burger","quantity":1,"unitPrice":%s}]}
             """.formatted(unitPrice);
         String json = mvc.perform(post("/orders").contentType("application/json").content(body)
-                        .with(user(customer, null, "ROLE_CUSTOMER")))
-                .andExpect(status().isAccepted())
-                .andReturn().getResponse().getContentAsString();
+                .with(user(customer, null, "ROLE_CUSTOMER")))
+            .andExpect(status().isAccepted())
+            .andReturn().getResponse().getContentAsString();
         return UUID.fromString(mapper.readTree(json).get("orderId").asText());
     }
 
     private void awaitStatus(UUID id, OrderStatus expected) {
         await().atMost(Duration.ofSeconds(40)).pollInterval(Duration.ofMillis(250)).untilAsserted(() ->
-                assertThat(orders.findById(id).orElseThrow().getStatus()).isEqualTo(expected));
+            assertThat(orders.findById(id).orElseThrow().getStatus()).isEqualTo(expected));
     }
 
     // ---------- saga
@@ -93,7 +93,7 @@ class OrderSagaIntegrationTest {
         awaitStatus(id, OrderStatus.COMPLETED);
         assertThat(sagas.findById(id).orElseThrow().getState()).isEqualTo(SagaState.COMPLETED);
         assertThat(relay.eventTypesFor(id.toString()))
-                .contains("OrderCreated", "OrderStatusChanged", "ProcessPayment", "ReserveInventory");
+            .contains("OrderCreated", "OrderStatusChanged", "ProcessPayment", "ReserveInventory");
     }
 
     @Test
@@ -121,17 +121,17 @@ class OrderSagaIntegrationTest {
         awaitStatus(id, OrderStatus.COMPLETED);
 
         participants.sendReply(id.toString(), "PaymentFailed", UUID.randomUUID().toString(),
-                Map.of("orderId", id.toString(), "reason", "late"));
+            Map.of("orderId", id.toString(), "reason", "late"));
 
         await().during(Duration.ofSeconds(3)).atMost(Duration.ofSeconds(8)).untilAsserted(() ->
-                assertThat(orders.findById(id).orElseThrow().getStatus()).isEqualTo(OrderStatus.COMPLETED));
+            assertThat(orders.findById(id).orElseThrow().getStatus()).isEqualTo(OrderStatus.COMPLETED));
     }
 
     // ---------- security through the real filter chain + method security
     @Test
     void unauthenticatedRequestsAreRejected() throws Exception {
         mvc.perform(post("/orders").contentType("application/json").content("{}"))
-                .andExpect(status().isUnauthorized());
+            .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -148,8 +148,8 @@ class OrderSagaIntegrationTest {
     @Test
     void validationRejectsEmptyOrders() throws Exception {
         mvc.perform(post("/orders").contentType("application/json")
-                        .content("{\"locationId\":\"loc-1\",\"lines\":[]}")
-                        .with(user("alice", null, "ROLE_CUSTOMER")))
-                .andExpect(status().isBadRequest());
+                .content("{\"locationId\":\"loc-1\",\"lines\":[]}")
+                .with(user("alice", null, "ROLE_CUSTOMER")))
+            .andExpect(status().isBadRequest());
     }
 }

@@ -1,0 +1,65 @@
+### Kitchen workflow (run requests.http steps 1-2 first so an order exists and is COMPLETED)
+
+### tokens
+POST http://localhost:8180/realms/restaurant/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=password&client_id=restaurant-web&username=chef1&password=password
+
+> {% client.global.set("chef1", response.body.access_token); %}
+
+###
+POST http://localhost:8180/realms/restaurant/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=password&client_id=restaurant-web&username=manager1&password=password
+
+> {% client.global.set("manager1", response.body.access_token); %}
+
+###
+POST http://localhost:8180/realms/restaurant/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=password&client_id=restaurant-web&username=admin1&password=password
+
+> {% client.global.set("admin1", response.body.access_token); %}
+
+### 1. Chef's board for loc-1 (QUEUED tickets appear after the order saga COMPLETED)
+GET http://localhost:8080/api/kitchen/tickets?status=QUEUED
+Authorization: Bearer {{chef1}}
+
+> {% if (response.body.length > 0) { client.global.set("ticketId", response.body[0].id); } %}
+
+### 2. Chef starts cooking (WRITE permission: same location + restaurant open + ticket not served)
+POST http://localhost:8080/api/kitchen/tickets/{{ticketId}}/start
+Authorization: Bearer {{chef1}}
+
+### 3. Chef marks it ready
+POST http://localhost:8080/api/kitchen/tickets/{{ticketId}}/ready
+Authorization: Bearer {{chef1}}
+
+### 4. Chef tries to serve -> 403 (SERVE is manager-only)
+POST http://localhost:8080/api/kitchen/tickets/{{ticketId}}/serve
+Authorization: Bearer {{chef1}}
+
+### 5. Manager serves
+POST http://localhost:8080/api/kitchen/tickets/{{ticketId}}/serve
+Authorization: Bearer {{manager1}}
+
+### 6. Skipping a step -> 409 (start an already served ticket)
+POST http://localhost:8080/api/kitchen/tickets/{{ticketId}}/start
+Authorization: Bearer {{manager1}}
+
+### ---- Read model rebuild (CQRS replay), run directly against the services, not through the gateway ----
+
+### R1. Empty the read model (query service)
+DELETE http://localhost:8082/admin/read-model
+Authorization: Bearer {{admin1}}
+
+### R2. Re-publish every order as an OrderSnapshot (order service)
+POST http://localhost:8081/admin/replay/orders?batchSize=500
+Authorization: Bearer {{admin1}}
+
+### R3. Compare: orderViews should equal "republished" from R2 (wait a few seconds)
+GET http://localhost:8082/admin/read-model/stats
+Authorization: Bearer {{admin1}}

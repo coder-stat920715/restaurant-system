@@ -15,18 +15,18 @@
 
   <modules>
     <module>api-gateway</module>
-	<!--<module>kitchen-inventory-service</module> -->
-	<!--<module>local-stack</module>-->
-	<module>order-query-service</module>
     <module>order-service</module>
-    <module>participants-stub</module>
-	<!--<module>payment-service</module>-->
+    <module>order-query-service</module>
+    <module>payment-service</module>
+    <module>kitchen-inventory-service</module>
+    <module>kitchen-workflow-service</module>
   </modules>
 
   <properties>
     <java.version>21</java.version>
     <spring-cloud.version>2023.0.3</spring-cloud.version>
     <resilience4j.version>2.2.0</resilience4j.version>
+	<lombok.version>1.18.46</lombok.version>
   </properties>
 
   <dependencyManagement>
@@ -43,6 +43,85 @@
         <artifactId>resilience4j-spring-boot3</artifactId>
         <version>${resilience4j.version}</version>
       </dependency>
+	  <dependency>
+		<groupId>org.projectlombok</groupId>
+		<artifactId>lombok</artifactId>
+		<version>${lombok.version}</version>
+		<optional>true</optional>
+	  </dependency>
     </dependencies>
   </dependencyManagement>
+
+  <!-- test-scoped libraries shared by every module (versions come from the Spring Boot BOM) -->
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-testcontainers</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>kafka</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>mongodb</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+  
+  <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <release>${java.version}</release>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>-Dnet.bytebuddy.experimental=true -XX:+EnableDynamicAgentLoading</argLine>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
 </project>

@@ -1,0 +1,81 @@
+### 1. Tokens (Keycloak realm 'restaurant', password for every user: password)
+POST http://localhost:8180/realms/restaurant/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=password&client_id=restaurant-web&username=alice&password=password
+
+> {% client.global.set("alice", response.body.access_token); %}
+
+###
+POST http://localhost:8180/realms/restaurant/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=password&client_id=restaurant-web&username=bob&password=password
+
+> {% client.global.set("bob", response.body.access_token); %}
+
+###
+POST http://localhost:8180/realms/restaurant/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=password&client_id=restaurant-web&username=chef1&password=password
+
+> {% client.global.set("chef1", response.body.access_token); %}
+
+### 2. COMMAND side: place an order through the gateway (202 Accepted, saga runs asynchronously)
+POST http://localhost:8080/api/orders
+Authorization: Bearer {{alice}}
+Content-Type: application/json
+
+{"locationId":"loc-1","lines":[{"menuItemId":"burger","quantity":2,"unitPrice":9.50}]}
+
+> {% client.global.set("orderId", response.body.orderId); %}
+
+### 3. QUERY side (Mongo read model, eventually consistent: wait ~1-2 s after step 2)
+GET http://localhost:8080/api/query/orders/{{orderId}}
+Authorization: Bearer {{alice}}
+
+### 4. Customer's own orders (read model)
+GET http://localhost:8080/api/query/orders/mine
+Authorization: Bearer {{alice}}
+
+### 5. Kitchen board for chef1's location (ABAC: location claim from token)
+GET http://localhost:8080/api/query/orders/kitchen-board?status=COMPLETED
+Authorization: Bearer {{chef1}}
+
+### 6. Write-model read with ABAC (PermissionEvaluator): alice OK
+GET http://localhost:8080/api/orders/{{orderId}}
+Authorization: Bearer {{alice}}
+
+### 7. Same order as bob -> 403
+GET http://localhost:8080/api/orders/{{orderId}}
+Authorization: Bearer {{bob}}
+
+### 8. Payment declined path (total > 500) -> order ends CANCELLED
+POST http://localhost:8080/api/orders
+Authorization: Bearer {{alice}}
+Content-Type: application/json
+
+{"locationId":"loc-1","lines":[{"menuItemId":"burger","quantity":1,"unitPrice":600.00}]}
+
+> {% client.global.set("declinedId", response.body.orderId); %}
+
+###
+GET http://localhost:8080/api/query/orders/{{declinedId}}
+Authorization: Bearer {{alice}}
+
+### 9. Out-of-stock path (stock is 20 salads) -> payment reversed, order CANCELLED
+POST http://localhost:8080/api/orders
+Authorization: Bearer {{alice}}
+Content-Type: application/json
+
+{"locationId":"loc-1","lines":[{"menuItemId":"salad","quantity":50,"unitPrice":5.00}]}
+
+> {% client.global.set("noStockId", response.body.orderId); %}
+
+###
+GET http://localhost:8080/api/query/orders/{{noStockId}}
+Authorization: Bearer {{alice}}
+
+### 10. Stock after reservations (kitchen service)
+GET http://localhost:8086/inventory

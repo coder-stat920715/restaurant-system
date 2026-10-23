@@ -1,0 +1,32 @@
+{
+  "name": "payments-outbox",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "tasks.max": "1",
+    "plugin.name": "pgoutput",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "postgres",
+    "database.password": "postgres",
+    "database.dbname": "payments",
+    "topic.prefix": "payments",
+    "table.include.list": "public.outbox_event",
+    "slot.name": "payments_outbox_slot",
+    "publication.name": "payments_outbox_slot_pub",
+    "publication.autocreate.mode": "filtered",
+    "tombstones.on.delete": "false",
+    "transforms": "outbox",
+    "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
+    "transforms.outbox.table.field.event.id": "id",
+    "transforms.outbox.table.field.event.key": "aggregate_id",
+    "transforms.outbox.table.field.event.type": "event_type",
+    "transforms.outbox.table.field.event.payload": "payload",
+    "transforms.outbox.route.by.field": "aggregate_type",
+    "transforms.outbox.table.expand.json.payload": "true",
+    "transforms.outbox.route.topic.replacement": "restaurant.events.${routedByValue}",
+    "transforms.outbox.table.fields.additional.placement": "event_type:header:eventType,id:header:eventId",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false"
+  }
+}

@@ -24,4 +24,5 @@ public class SagaInstance {
     public void setPaymentId(String p) { this.paymentId = p; }
     public String getFailureReason() { return failureReason; }
     public void setFailureReason(String r) { this.failureReason = r; }
+    public Instant getUpdatedAt() { return updatedAt; }
 }

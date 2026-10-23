@@ -1,0 +1,58 @@
+server.port: 8085
+spring:
+  application.name: payment-service
+  threads.virtual.enabled: true
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/payments}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:29092}
+    consumer:
+      group-id: payment-service
+      enable-auto-commit: false
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    listener.ack-mode: manual
+management.endpoints.web.exposure.include: health,prometheus
+
+psp:
+  base-url: ${PSP_URL:http://localhost:8085/psp}     # points at the built-in fake PSP; set a real provider URL in prod
+  fake:
+    decline-above: 500
+    failure-rate: 0.0                                # e.g. 0.5 to watch retry/circuit breaker in action
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      psp:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 20s
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        permittedNumberOfCallsInHalfOpenState: 5
+        recordExceptions:
+          - java.io.IOException
+          - org.springframework.web.client.ResourceAccessException
+          - org.springframework.web.client.HttpServerErrorException
+        ignoreExceptions:
+          - com.example.payment.psp.PspDeclinedException
+  retry:
+    instances:
+      psp:
+        maxAttempts: 4
+        waitDuration: 200ms
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+        enableRandomizedWait: true
+        randomizedWaitFactor: 0.5
+        retryExceptions:
+          - java.io.IOException
+          - org.springframework.web.client.ResourceAccessException
+          - org.springframework.web.client.HttpServerErrorException
+        ignoreExceptions:
+          - com.example.payment.psp.PspDeclinedException
+          - io.github.resilience4j.circuitbreaker.CallNotPermittedException

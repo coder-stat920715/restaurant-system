@@ -64,10 +64,10 @@ public class SagaTestSupport {
                 String aggId = (String) r.get("aggregate_id");
                 String type = (String) r.get("event_type");
                 List<Header> headers = List.of(
-                        new RecordHeader("eventType", type.getBytes(StandardCharsets.UTF_8)),
-                        new RecordHeader("eventId", id.toString().getBytes(StandardCharsets.UTF_8)));
+                    new RecordHeader("eventType", type.getBytes(StandardCharsets.UTF_8)),
+                    new RecordHeader("eventId", id.toString().getBytes(StandardCharsets.UTF_8)));
                 kafka.send(new ProducerRecord<>("restaurant.events." + r.get("aggregate_type"), null, aggId,
-                        (String) r.get("payload"), headers)).join();
+                    (String) r.get("payload"), headers)).join();
                 published.computeIfAbsent(aggId, k -> new CopyOnWriteArrayList<>()).add(type);
                 jdbc.update("DELETE FROM outbox_event WHERE id = ?", id);
             }
@@ -105,10 +105,10 @@ public class SagaTestSupport {
                 case "ProcessPayment" -> {
                     if (n.get("amount").decimalValue().compareTo(maxAmount) > 0) {
                         sendReply(orderId, "PaymentFailed", UUID.randomUUID().toString(),
-                                Map.of("orderId", orderId, "reason", "Amount exceeds limit"));
+                            Map.of("orderId", orderId, "reason", "Amount exceeds limit"));
                     } else {
                         sendReply(orderId, "PaymentSucceeded", UUID.randomUUID().toString(),
-                                Map.of("orderId", orderId, "paymentId", "pay-" + orderId));
+                            Map.of("orderId", orderId, "paymentId", "pay-" + orderId));
                     }
                 }
                 case "ReversePayment" -> {
@@ -126,7 +126,7 @@ public class SagaTestSupport {
             if ("ReserveInventory".equals(header(rec, "eventType"))) {
                 if (kitchenFails) {
                     sendReply(orderId, "InventoryFailed", UUID.randomUUID().toString(),
-                            Map.of("orderId", orderId, "reason", "Out of stock"));
+                        Map.of("orderId", orderId, "reason", "Out of stock"));
                 } else {
                     sendReply(orderId, "InventoryReserved", UUID.randomUUID().toString(), Map.of("orderId", orderId));
                 }
@@ -136,10 +136,10 @@ public class SagaTestSupport {
 
         public void sendReply(String orderId, String type, String eventId, Map<String, ?> payload) throws Exception {
             List<Header> headers = List.of(
-                    new RecordHeader("eventType", type.getBytes(StandardCharsets.UTF_8)),
-                    new RecordHeader("eventId", eventId.getBytes(StandardCharsets.UTF_8)));
+                new RecordHeader("eventType", type.getBytes(StandardCharsets.UTF_8)),
+                new RecordHeader("eventId", eventId.getBytes(StandardCharsets.UTF_8)));
             kafka.send(new ProducerRecord<>("restaurant.events.saga-reply", null, orderId,
-                    mapper.writeValueAsString(payload), headers)).get();
+                mapper.writeValueAsString(payload), headers)).get();
         }
 
         private static String header(ConsumerRecord<?, ?> rec, String name) {

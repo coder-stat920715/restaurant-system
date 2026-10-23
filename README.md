@@ -1,24 +1,26 @@
-# Pending implementation: drop-in files
+# Restaurant Management System
 
-Unzip over the project root (paths match). Then:
+Spring Boot 3.3 / Java 21 microservices: API gateway, orchestrated saga (order, payment, kitchen/inventory),
+transactional outbox + Debezium CDC, CQRS (Postgres write model, MongoDB read model), RBAC + ABAC security,
+Resilience4j, kitchen workflow, Terraform for AWS. See PROJECT_STRUCTURE.md for what lives where.
 
-## Delete (obsolete)
-- `order-service/src/main/java/com/example/restaurant/client/` (4 files; the PSP client now lives in payment-service)
-- `participants-stub/` module (real Payment and Kitchen/Inventory services replace it; never run both)
+## Build
+```
+mvn clean install -DskipTests      # fast, no Docker needed
+mvn clean install                  # also runs unit tests; integration tests need Docker and skip themselves without it
+```
 
-## Start order (Windows)
-1. `cd local-stack` then `docker compose down -v` (new DB layout) then `docker compose up -d`
-2. Start once: order-service (8081), payment-service (8085), kitchen-inventory-service (8086)  -> Flyway creates the tables
-3. `cd local-stack` then `register-connectors.cmd`  -> three Debezium outbox connectors (orders, payments, kitchen)
+## Run locally (Windows / IntelliJ friendly)
+1. `cd local-stack`, then `docker compose up -d` (see local-stack/README.md)
+2. Start once, in any order: order-service (8081), payment-service (8085), kitchen-inventory-service (8086), kitchen-workflow-service (8087)
+3. `register-connectors.cmd` in local-stack (three Debezium outbox connectors)
 4. Start order-query-service (8082) and api-gateway (8080)
-5. Open `requests.http` in IntelliJ and run the requests top to bottom.
+5. Run `requests.http`, then `requests-kitchen.http` in IntelliJ's HTTP client
 
-## Saga message flow
-order-service --(outbox/CDC)--> restaurant.events.saga-payment  --> payment-service --(outbox/CDC)--> restaurant.events.saga-reply
-order-service --(outbox/CDC)--> restaurant.events.saga-kitchen  --> kitchen-service --(outbox/CDC)--> restaurant.events.saga-reply
-Every command/reply is keyed by orderId, so per-order ordering is preserved.
+Run a module: `mvn -pl order-service spring-boot:run` (or the main class `OrderApplication` in IntelliJ).
 
-## Tunables
-- `saga.timeout` (order-service, default PT2M): a stuck saga is compensated.
-- `psp.fake.failure-rate` (payment-service): e.g. 0.5 to watch retry + circuit breaker.
-- `psp.fake.decline-above` (default 500).
+## Flows
+- Create order: gateway, order-service (order + outbox row in one tx), Debezium, Kafka, saga orchestrator
+- Saga: payment-service (calls PSP with retry/circuit breaker), kitchen-inventory-service (reserves stock); failures compensate
+- Read side: order-query-service projects events into MongoDB; replay via /admin endpoints
+- After COMPLETED: kitchen-workflow-service opens a ticket (QUEUED, PREPARING, READY, SERVED) with ABAC-protected transitions
